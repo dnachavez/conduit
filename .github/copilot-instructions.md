@@ -12,7 +12,7 @@ Building a multi-tenant AI call center SaaS where businesses create workspaces w
 4. **LiveKit Room** → AI agent, customer, and optionally human agent all in same room (seamless handoff)
 
 ### Tech Stack Rationale
-- **Frontend**: Next.js + TypeScript (multi-tenant SaaS, server actions, LiveKit React SDK)
+- **Frontend**: Next.js + TypeScript (multi-tenant SaaS, server actions, LiveKit React SDK) + shadcn/ui (accessible component library built on Radix UI and Tailwind CSS)
 - **Backend/Agents**: Python (LiveKit Agents SDK first-class support, RAG libraries)
 - **Database**: Supabase/Postgres with pgvector (vector search, row-level security for multi-tenancy)
 - **Telephony**: Twilio (PSTN gateway only) + LiveKit (WebRTC rooms, agent framework)
