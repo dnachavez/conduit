@@ -62,14 +62,14 @@ export default function SignInPage() {
 
         <p className="text-xs text-zinc-500">
           <Link
-            href="#"
+            href="/terms-of-service"
             className="text-zinc-400 underline-offset-4 hover:underline"
           >
             Terms of Service
           </Link>{" "}
           and{" "}
           <Link
-            href="#"
+            href="/privacy-policy"
             className="text-zinc-400 underline-offset-4 hover:underline"
           >
             Privacy Policy
