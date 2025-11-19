@@ -1,0 +1,209 @@
+---
+alwaysApply: true
+---
+# Conduit - AI Call Center Platform
+
+## Project Overview
+Building a multi-tenant AI call center SaaS where businesses create workspaces with dedicated AI agents, phone numbers, and knowledge bases. Each workspace operates independently with its own agent that can handle calls and escalate to human agents when needed.
+
+## Architecture & Call Flow
+
+### Voice Pipeline
+1. **Twilio (Gateway)** → Customer dials workspace Twilio number
+2. **TwiML Bin** → Forwards call to LiveKit SIP endpoint with credentials
+3. **LiveKit SIP Trunk** → Dispatch rule creates room (`call-XXX`) and spawns agent
+4. **LiveKit Room** → AI agent, customer, and optionally human agent all in same room (seamless handoff)
+
+### Tech Stack Rationale
+- **Frontend**: Next.js + TypeScript (multi-tenant SaaS, server actions, LiveKit React SDK) + shadcn/ui (accessible component library built on Radix UI and Tailwind CSS)
+- **Backend/Agents**: Python (LiveKit Agents SDK first-class support, RAG libraries)
+- **Database**: Supabase/Postgres with pgvector (vector search, row-level security for multi-tenancy)
+- **Telephony**: Twilio (PSTN gateway only) + LiveKit (WebRTC rooms, agent framework)
+- **AI**: OpenAI (STT via Whisper, LLM via GPT-4o, TTS or Voice API)
+
+## Critical Data Model
+
+### Core Tables (Supabase)
+```sql
+workspaces: id, name, twilio_phone_number, sip_credentials
+users: id, email (business/company email only)
+memberships: user_id, workspace_id (many-to-many)
+knowledge_documents: workspace_id, source_url, content, embeddings vector(1536), chunk_id
+calls: id, workspace_id, room_name, start_time, end_time, human_assignee, status
+transcripts: call_id, speaker, text, timestamp, sentiment, intent, workspace_id
+```
+
+**Multi-tenancy**: Use row-level security policies on `workspace_id` to isolate data.
+
+## Agent Behavior & Handoff Pattern
+
+### AI Agent Pipeline
+```python
+STT (Whisper/Deepgram) → LLM (GPT-4o + RAG tool) → TTS (OpenAI voice)
+```
+
+**Pre-emptive generation**: Enable for low latency (`preemptive_generation=True`)
+
+### RAG Tool Pattern
+```python
+@function_tool
+def search_docs(question: str, workspace_id: str):
+    # 1. Embed question (OpenAI text-embedding-ada-002)
+    # 2. SELECT * ORDER BY embedding <-> question_embedding LIMIT k
+    # 3. Return concatenated chunks as context
+```
+
+System prompt: "If you need company-specific information, call `search_docs` tool."
+
+### Human Handoff Workflow
+1. **Trigger**: LLM calls handoff tool (user frustrated, agent can't resolve)
+2. **Summary**: Copy `session.history`, extract intent/sentiment/knowledge used
+3. **Assign**: Select **least-busy** human agent (query `calls` table for active calls per agent, pick minimum)
+4. **Notify**: Send summary + "Join Call" button to selected human (WebSocket/Supabase realtime)
+5. **Seamless**: Human joins same LiveKit room via WebRTC (no Twilio bridging)
+6. **AI Co-pilot Mode**: Agent mutes audio output but continues listening and publishes real-time suggestions to human agent's UI:
+   - Next best action based on conversation context
+   - Recommended responses from knowledge base
+   - Sentiment warnings (customer frustration increasing)
+   - Suggested knowledge articles to reference
+
+**Co-pilot implementation**: Use separate data channel or Supabase realtime to send AI suggestions without audio interruption. Display in side-panel of human agent dashboard.
+
+Reference: LiveKit warm-transfer pattern preserves `chat_ctx` between agents.
+
+## Knowledge Base Ingestion
+
+### Document Processing
+1. **Sources**: URL scraping (BeautifulSoup), PDF/Word uploads (pdfminer, pypdf)
+2. **Chunking**: ~500-word sections with overlap
+3. **Embedding**: OpenAI `text-embedding-ada-002` per chunk
+4. **Storage**: Insert into `knowledge_documents` with `workspace_id` for isolation
+
+### Real-Time Re-embedding
+- **File changes**: Use Supabase realtime subscriptions or database triggers on `knowledge_documents` table
+- **Update flow**: Document modified → trigger re-chunking → generate new embeddings → atomic update in DB
+- **Version tracking**: Add `version` or `updated_at` column to track embedding freshness
+- **Implementation**: Background worker or Edge Function that watches for document updates
+
+## Key Developer Workflows
+
+### Telephony Setup (Per Workspace)
+**Automated via API on workspace creation** (must complete within minutes):
+
+```python
+# 1. Provision Twilio number
+from twilio.rest import Client
+client = Client(account_sid, auth_token)
+number = client.incoming_phone_numbers.create(
+    phone_number="+1234567890",  # from available pool
+    friendly_name=f"Workspace: {workspace.name}"
+)
+
+# 2. Create TwiML bin with LiveKit SIP endpoint
+twiml_bin = client.api.accounts(account_sid).trunks.create(
+    friendly_name=f"{workspace.id}-inbound",
+    # TwiML: <Dial><Sip username="..." password="...">sip:+{number}@{livekit_endpoint}</Sip></Dial>
+)
+
+# 3. Update phone number to use TwiML bin
+number.update(voice_url=twiml_bin.uri)
+
+# 4. Create LiveKit inbound trunk + dispatch rule (via LiveKit API or CLI)
+# livekit-cli sip inbound create --name workspace-{id} --numbers {number}
+# livekit-cli sip dispatch create --rule "call-*" --agent voice_assistant
+```
+
+**Error handling**: If any step fails, rollback previous steps and mark workspace as `provisioning_failed`.
+**Status tracking**: Add `provisioning_status` column to `workspaces` table (pending → provisioning → active → failed).
+
+### Running Agent Locally
+```bash
+# Set environment variables
+export LIVEKIT_URL=wss://...
+export LIVEKIT_API_KEY=...
+export LIVEKIT_API_SECRET=...
+export OPENAI_API_KEY=...
+
+# Start agent server (Python)
+python agents/voice_assistant.py
+```
+
+### Testing Call Flow
+1. Call workspace Twilio number
+2. Verify LiveKit room created (`call-<uuid>`)
+3. Agent joins and responds (check `session.history` for transcripts)
+4. Test handoff trigger (say "I want to speak to a human")
+
+### Recording & Transcripts
+- **Audio**: `api.RoomCompositeEgressRequest` → S3 bucket
+- **Transcript**: `session.on_shutdown` → save `session.history.to_dict()` to `transcripts` table
+- **Real-time**: Subscribe to `lk.transcription` events in frontend for live display
+
+## Project-Specific Conventions
+
+### Multi-Tenancy
+- **All queries** must filter by `workspace_id` (enforced via RLS policies)
+- Supabase client should use workspace-scoped contexts
+- Never expose data across workspaces (test RLS policies thoroughly)
+
+### Agent Session State
+Store custom state (e.g., workspace config, user metadata) in agent session:
+```python
+@dataclass
+class SessionData:
+    workspace_id: str
+    knowledge_base_ids: list[str]
+    escalation_threshold: int
+    human_agent_id: Optional[str]  # Set when human joins
+    copilot_mode: bool = False  # True when AI assists human
+```
+Pass to handoff agents via `chat_ctx`.
+
+### Agent Assignment Logic (Least-Busy)
+```python
+def get_available_human(workspace_id: str) -> Optional[str]:
+    # Query active calls per agent, return agent with minimum count
+    query = """
+        SELECT user_id, COUNT(*) as active_calls 
+        FROM calls 
+        WHERE workspace_id = %s AND status = 'active' AND human_assignee IS NOT NULL
+        GROUP BY user_id
+        ORDER BY active_calls ASC
+        LIMIT 1
+    """
+    # Fallback: if all busy, queue or return None
+```
+
+### Frontend Integration
+- Use LiveKit React hooks (`useRoom`, `useParticipants`, `useTracks`)
+- Display real-time transcripts from `lk.transcription` stream
+- Human agent dashboard: subscribe to Supabase realtime channel for call escalations
+
+## Critical Constraints
+
+### Latency Targets
+- **STT → LLM → TTS roundtrip**: <1.5s for natural conversation
+- Use Deepgram/Whisper for STT (compare latency vs accuracy)
+- Enable VAD (voice activity detection) to avoid clipping
+
+### Concurrency
+- Each agent server handles 10-25 concurrent calls (4 cores, 8GB RAM per LiveKit docs)
+- Scale horizontally for production (containerize, use LiveKit Cloud)
+
+### Call Transfer (Optional)
+If transferring to PSTN numbers (not just internal handoff):
+- Create LiveKit **outbound trunk**
+- Enable SIP REFER and PSTN transfer on Twilio trunk
+
+## MVP Scope (90% in 1 Day)
+1. ✅ Twilio → LiveKit → AI agent call flow working
+2. ✅ Basic RAG retrieval (3-5 docs ingested manually)
+3. ✅ Human handoff with summary (WebSocket notification)
+4. ✅ Real-time transcript display in Next.js dashboard
+5. ⏸️ Recording to S3, sentiment analysis (nice-to-have)
+
+## References
+- [LiveKit Twilio Integration](https://docs.livekit.io/agents/twilio)
+- [LiveKit Agent Handoffs](https://docs.livekit.io/agents/handoffs)
+- [Supabase Vector Search](https://supabase.com/docs/guides/ai/vector-search)
+- See `plan.md` for detailed implementation steps
