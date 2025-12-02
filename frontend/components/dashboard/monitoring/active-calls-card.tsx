@@ -1,0 +1,978 @@
+"use client"
+
+import * as React from "react"
+
+import { ThumbsUp, CircleDashed, ThumbsDown, FileIcon, MessageSquare, InfoIcon, MoreVertical, Eye, PhoneOff, Download, FileEdit, Flag, Sparkles, User, AlertTriangle, CheckCircle, Clock, CircleCheck, HelpCircle } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+import { Badge } from "@/components/ui/badge"
+
+import { Button } from "@/components/ui/button"
+
+import { CopyButton } from "@/components/dashboard/monitoring/copy-button"
+
+import { 
+
+  Popover,
+
+  PopoverContent,
+
+  PopoverTrigger 
+
+} from "@/components/ui/popover"
+
+import {
+
+  Tooltip,
+
+  TooltipContent,
+
+  TooltipTrigger
+
+} from "@/components/ui/tooltip"
+
+import {
+
+  DropdownMenu,
+
+  DropdownMenuContent,
+
+  DropdownMenuItem,
+
+  DropdownMenuLabel,
+
+  DropdownMenuSeparator,
+
+  DropdownMenuTrigger,
+
+} from "@/components/ui/dropdown-menu"
+
+type ActiveCallsProps = React.HTMLAttributes<HTMLDivElement>
+
+type CallStatus = "ongoing" | "escalated" | "transferred" | "ended"
+
+type SentimentType = "positive" | "negative" | "neutral"
+
+interface CallEntry {
+
+  id: string
+
+  caller: string
+
+  callerPhone: string
+
+  agentType: string
+
+  duration: string
+
+  status: CallStatus
+
+  sentiment: SentimentType
+
+  topics: string
+
+  articles: string[]
+
+}
+
+export function ActiveCallsCard({
+
+  className,
+
+  ...props
+
+}: ActiveCallsProps) {
+
+  // Example data based on the updated requirements
+
+  const activeCalls: CallEntry[] = [
+
+    {
+
+      id: "550e8400-e29b-41d4-a716-446655440000",
+
+      caller: "Maria Santos",
+
+      callerPhone: "+63 917 123 4567",
+
+      agentType: "AI Agent",
+
+      duration: "04:32",
+
+      status: "ongoing",
+
+      sentiment: "positive",
+
+      topics: "Account Verification, Password Reset",
+
+      articles: ["How to Verify Account", "Password Recovery Process"]
+
+    },
+
+    {
+
+      id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+
+      caller: "Juan Dela Cruz",
+
+      callerPhone: "+63 918 765 4321",
+
+      agentType: "John Doe",
+
+      duration: "12:15",
+
+      status: "escalated",
+
+      sentiment: "negative",
+
+      topics: "Billing Issue, Service Interruption",
+
+      articles: ["Billing Dispute Resolution", "Service Outage Policies"]
+
+    },
+
+    {
+
+      id: "6ba7b811-9dad-11d1-80b4-00c04fd430c8",
+
+      caller: "Ana Reyes",
+
+      callerPhone: "+63 929 999 8888",
+
+      agentType: "Jane Doe",
+
+      duration: "01:45",
+
+      status: "transferred",
+
+      sentiment: "neutral",
+
+      topics: "Account Settings, Subscription Plans",
+
+      articles: ["Managing Account Preferences", "Premium Plans Comparison"]
+
+    },
+
+    {
+
+      id: "6ba7b812-9dad-11d1-80b4-00c04fd430c8",
+
+      caller: "Jose Rizal",
+
+      callerPhone: "+63 999 444 3333",
+
+      agentType: "AI Agent",
+
+      duration: "00:52",
+
+      status: "ended",
+
+      sentiment: "neutral",
+
+      topics: "Technical Support, Device Connectivity",
+
+      articles: ["Troubleshooting Connection Issues", "Device Setup Guide"]
+
+    }
+
+  ]
+
+  // Function to get appropriate status badge styling
+
+  const getStatusBadge = (status: CallStatus, agentType: string) => {
+
+    const isHumanAgent = agentType !== "AI Agent";
+
+    
+
+    switch (status) {
+
+      case "ongoing":
+
+        return (
+
+          <Tooltip>
+
+            <TooltipTrigger asChild>
+
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-xs inline-flex items-center gap-1.5">
+
+                <span>Ongoing</span>
+
+                <Clock className="size-3.5" />
+
+              </Badge>
+
+            </TooltipTrigger>
+
+            <TooltipContent>
+
+              <p className="text-xs">Call in progress</p>
+
+            </TooltipContent>
+
+          </Tooltip>
+
+        );
+
+      case "escalated":
+
+        return (
+
+          <Tooltip>
+
+            <TooltipTrigger asChild>
+
+              <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20 text-xs inline-flex items-center gap-1.5">
+
+                <span>Escalated</span>
+
+                {isHumanAgent ? (
+
+                  <AlertTriangle className="size-3.5" />
+
+                ) : null}
+
+              </Badge>
+
+            </TooltipTrigger>
+
+            <TooltipContent>
+
+              <p className="text-xs">{isHumanAgent ? "Escalated to human agent (negative indicator)" : "Escalated"}</p>
+
+            </TooltipContent>
+
+          </Tooltip>
+
+        );
+
+      case "transferred":
+
+        return (
+
+          <Tooltip>
+
+            <TooltipTrigger asChild>
+
+              <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 text-xs inline-flex items-center gap-1.5">
+
+                <span>Transferred</span>
+
+                {isHumanAgent ? (
+
+                  <CheckCircle className="size-3.5" />
+
+                ) : null}
+
+              </Badge>
+
+            </TooltipTrigger>
+
+            <TooltipContent>
+
+              <p className="text-xs">{isHumanAgent ? "Transferred to human agent (positive indicator)" : "Transferred"}</p>
+
+            </TooltipContent>
+
+          </Tooltip>
+
+        );
+
+      case "ended":
+
+        return (
+
+          <Tooltip>
+
+            <TooltipTrigger asChild>
+
+              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 text-xs inline-flex items-center gap-1.5">
+
+                <span>Resolved</span>
+
+                <CircleCheck className="size-3.5" />
+
+              </Badge>
+
+            </TooltipTrigger>
+
+            <TooltipContent>
+
+              <p className="text-xs">Call completed successfully</p>
+
+            </TooltipContent>
+
+          </Tooltip>
+
+        );
+
+      default:
+
+        return (
+
+          <Tooltip>
+
+            <TooltipTrigger asChild>
+
+              <Badge variant="outline" className="text-xs inline-flex items-center gap-1.5">
+
+                <span>Unknown</span>
+
+                <HelpCircle className="size-3.5 text-muted-foreground" />
+
+              </Badge>
+
+            </TooltipTrigger>
+
+            <TooltipContent>
+
+              <p className="text-xs">Status unavailable</p>
+
+            </TooltipContent>
+
+          </Tooltip>
+
+        );
+
+    }
+
+  }
+
+  // Function to get sentiment indicator
+
+  const getSentimentIndicator = (sentiment: SentimentType) => {
+
+    switch (sentiment) {
+
+      case "positive":
+
+        return (
+
+          <>
+
+            <ThumbsUp className="size-3.5 text-green-500" />
+
+            <span className="text-xs text-green-500 capitalize">{sentiment}</span>
+
+          </>
+
+        )
+
+      case "negative":
+
+        return (
+
+          <>
+
+            <ThumbsDown className="size-3.5 text-red-500" />
+
+            <span className="text-xs text-red-500 capitalize">{sentiment}</span>
+
+          </>
+
+        )
+
+      case "neutral":
+
+        return (
+
+          <>
+
+            <CircleDashed className="size-3.5 text-blue-500" />
+
+            <span className="text-xs text-blue-500 capitalize">{sentiment}</span>
+
+          </>
+
+        )
+
+      default:
+
+        return null
+
+    }
+
+  }
+
+  // Function to format call ID with ellipsis
+
+  const formatCallId = (id: string) => {
+
+    if (id.length <= 10) return id;
+
+    
+
+    const firstPart = id.substring(0, 6);
+
+    const lastPart = id.substring(id.length - 4);
+
+    
+
+    return `${firstPart} ... ${lastPart}`;
+
+  }
+
+  // Function to render agent type with special styling for AI agents
+
+  const renderAgentType = (agentType: string) => {
+
+    if (agentType === "AI Agent") {
+
+      return (
+
+        <div className="flex items-center gap-1.5">
+
+          <style jsx global>{`
+
+            @keyframes pulse {
+
+              0% { transform: scale(1); opacity: 1; }
+
+              50% { transform: scale(1.2); opacity: 0.8; }
+
+              100% { transform: scale(1); opacity: 1; }
+
+            }
+
+            
+
+            @keyframes shimmer {
+
+              0% { background-position: -200% center; }
+
+              100% { background-position: 200% center; }
+
+            }
+
+            
+
+            .sparkle-icon {
+
+              animation: pulse 2s infinite ease-in-out;
+
+            }
+
+            
+
+            .gradient-text {
+
+              background: linear-gradient(to right, #a99cf2, #8de3f4, #a99cf2);
+
+              background-size: 200% auto;
+
+              animation: shimmer 3s infinite linear;
+
+              -webkit-background-clip: text;
+
+              -webkit-text-fill-color: transparent;
+
+              background-clip: text;
+
+            }
+
+            .gradient-bg {
+
+              background: linear-gradient(to right, rgba(84, 44, 222, 0.55), rgba(15, 174, 216, 0.55), rgba(84, 44, 222, 0.55));
+
+              background-size: 200% auto;
+
+              animation: shimmer 3s infinite linear;
+
+              border: none;
+
+            }
+
+          `}</style>
+
+          <Badge variant="outline" className="gradient-bg text-white border-transparent text-xs inline-flex items-center gap-1">
+
+            <Sparkles className="size-3.5 sparkle-icon text-[#8de3f4]" />
+
+            <span className="capitalize gradient-text">{agentType}</span>
+
+          </Badge>
+
+        </div>
+
+      );
+
+    }
+
+    return (
+
+      <Tooltip>
+
+        <TooltipTrigger asChild>
+
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-transparent text-xs inline-flex items-center gap-1">
+
+            <User className="size-3.5" />
+
+            <span className="capitalize">{agentType}</span>
+
+          </Badge>
+
+        </TooltipTrigger>
+
+        <TooltipContent>
+
+          <p className="text-xs">Human Agent</p>
+
+        </TooltipContent>
+
+      </Tooltip>
+
+    );
+
+  };
+
+  // Function to format and style duration
+
+  const formatDuration = (durationStr: string) => {
+
+    // Parse the duration string (format: mm:ss)
+
+    const [minutes, seconds] = durationStr.split(':').map(Number);
+
+    const totalMinutes = minutes + (seconds / 60);
+
+    
+
+    // Format based on duration length
+
+    let formattedText = '';
+
+    let colorClass = '';
+
+    
+
+    if (totalMinutes < 1) {
+
+      formattedText = `<1m`;
+
+      colorClass = 'text-green-500';
+
+    } else if (totalMinutes < 5) {
+
+      formattedText = `${Math.floor(totalMinutes)}m`;
+
+      colorClass = 'text-green-500';
+
+    } else if (totalMinutes < 10) {
+
+      formattedText = `${Math.floor(totalMinutes)}m`;
+
+      colorClass = 'text-blue-500';
+
+    } else if (totalMinutes < 15) {
+
+      formattedText = `${Math.floor(totalMinutes)}m`;
+
+      colorClass = 'text-yellow-500';
+
+    } else {
+
+      formattedText = `${Math.floor(totalMinutes)}m`;
+
+      colorClass = 'text-orange-500';
+
+    }
+
+    
+
+    return (
+
+      <div className="flex items-center gap-1.5">
+
+        <Clock className={`size-3.5 ${colorClass}`} />
+
+        <span className={`text-xs font-medium ${colorClass}`}>
+
+          {formattedText}
+
+        </span>
+
+      </div>
+
+    );
+
+  }
+
+  const handleRowClick = (callId: string) => {
+
+    // Implementation for when a row is clicked
+
+    console.log(`Call ${callId} details requested`);
+
+  }
+
+  
+
+  const handleEndCall = (id: string, e: React.MouseEvent) => {
+
+    e.stopPropagation();
+
+    console.log("Ending call:", id);
+
+    // Implementation for ending a call
+
+  }
+
+  
+
+  const handleViewDetails = (id: string, e: React.MouseEvent) => {
+
+    e.stopPropagation();
+
+    console.log("Viewing details for call:", id);
+
+    // Implementation for viewing call details
+
+  }
+
+  
+
+  const handleDownloadTranscript = (id: string, e: React.MouseEvent) => {
+
+    e.stopPropagation();
+
+    console.log("Downloading transcript for call:", id);
+
+    // Implementation for downloading transcript
+
+  }
+
+  
+
+  const handleAddNote = (id: string, e: React.MouseEvent) => {
+
+    e.stopPropagation();
+
+    console.log("Adding note to call:", id);
+
+    // Implementation for adding a note
+
+  }
+
+  
+
+  const handleFlagCall = (id: string, e: React.MouseEvent) => {
+
+    e.stopPropagation();
+
+    console.log("Flagging call for review:", id);
+
+    // Implementation for flagging call
+
+  }
+
+  return (
+
+    <div className={cn("rounded-xl bg-[#171717] p-6", className)} {...props}>
+
+      <div className="mb-6">
+
+        <h3 className="text-base font-semibold mb-1">Active Calls</h3>
+
+        <p className="text-xs text-zinc-400">
+
+          Real-time monitoring of current calls in the system.
+
+        </p>
+
+      </div>
+
+      <div className="overflow-auto">
+
+        <table className="w-full">
+
+            <thead>
+
+              <tr className="border-b border-zinc-800">
+
+                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-400">Call ID</th>
+
+                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-400">Caller</th>
+
+                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-400">Agent</th>
+
+                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-400">Duration</th>
+
+                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-400">Status</th>
+
+                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-400">Sentiment</th>
+
+                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-400">Context</th>
+
+                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-400">Actions</th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {activeCalls.map((call) => (
+
+                <tr 
+
+                  key={call.id} 
+
+                  className="border-b border-zinc-800 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+
+                  onClick={() => handleRowClick(call.id)}
+
+                >
+
+                  <td className="px-4 py-3 text-xs font-mono">
+
+                    <CopyButton 
+
+                      value={call.id} 
+
+                      size="sm" 
+
+                      variant="ghost" 
+
+                      className="h-6 w-6 rounded-full"
+
+                    >
+
+                      {formatCallId(call.id)}
+
+                    </CopyButton>
+
+                  </td>
+
+                  <td className="px-4 py-3">
+
+                    <div className="text-xs font-medium text-zinc-50">{call.caller}</div>
+
+                    <div className="text-xs text-zinc-400">{call.callerPhone}</div>
+
+                  </td>
+
+                  <td className="px-4 py-3 text-xs">{renderAgentType(call.agentType)}</td>
+
+                  <td className="px-4 py-3 text-xs">{formatDuration(call.duration)}</td>
+
+                  <td className="px-4 py-3">{getStatusBadge(call.status, call.agentType)}</td>
+
+                  <td className="px-4 py-3">
+
+                    <div className="flex items-center gap-1.5">
+
+                      {getSentimentIndicator(call.sentiment)}
+
+                    </div>
+
+                  </td>
+
+                  <td className="px-4 py-3">
+
+                    <div className="flex items-center gap-2">
+
+                      <Popover>
+
+                        <PopoverTrigger asChild>
+
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 hover:border-zinc-700 border border-transparent transition-all duration-200 rounded-md">
+
+                            <MessageSquare className="size-3.5" />
+
+                            <span className="text-xs">Topics</span>
+
+                          </Button>
+
+                        </PopoverTrigger>
+
+                        <PopoverContent className="w-auto p-3 bg-[#1f1f1f] border-zinc-800" align="start">
+
+                          <div className="space-y-2">
+
+                            <h4 className="text-xs font-semibold text-zinc-50">Conversation Topics</h4>
+
+                            <div className="text-xs text-zinc-400 space-y-1">
+
+                              {call.topics.split(',').map((topic, index) => (
+
+                                <div key={index} className="flex items-center gap-2">
+
+                                  <Badge variant="outline" className="bg-secondary/50 text-secondary-foreground text-xs">
+
+                                    {topic.trim()}
+
+                                  </Badge>
+
+                                </div>
+
+                              ))}
+
+                            </div>
+
+                          </div>
+
+                        </PopoverContent>
+
+                      </Popover>
+
+                      <Popover>
+
+                        <PopoverTrigger asChild>
+
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-zinc-400 hover:text-zinc-50 hover:bg-zinc-800/50 hover:border-zinc-700 border border-transparent transition-all duration-200 rounded-md">
+
+                            <FileIcon className="size-3.5" />
+
+                            <span className="text-xs">Articles</span>
+
+                          </Button>
+
+                        </PopoverTrigger>
+
+                        <PopoverContent className="w-auto p-3 bg-[#1f1f1f] border-zinc-800" align="start">
+
+                          <div className="space-y-2">
+
+                            <h4 className="text-xs font-semibold text-zinc-50">Referenced Articles</h4>
+
+                            <ul className="text-xs text-zinc-400 space-y-1.5">
+
+                              {call.articles.map((article, index) => (
+
+                                <li key={index} className="flex items-center gap-2">
+
+                                  <InfoIcon className="size-3 text-primary" />
+
+                                  <span className="hover:text-primary hover:underline cursor-pointer">
+
+                                    {article}
+
+                                  </span>
+
+                                </li>
+
+                              ))}
+
+                            </ul>
+
+                          </div>
+
+                        </PopoverContent>
+
+                      </Popover>
+
+                    </div>
+
+                  </td>
+
+                  <td className="px-4 py-3">
+
+                    <div className="flex items-center justify-center">
+
+                      <DropdownMenu>
+
+                        <Tooltip>
+
+                          <TooltipTrigger asChild>
+
+                            <DropdownMenuTrigger asChild>
+
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => e.stopPropagation()}>
+
+                                <MoreVertical className="size-3.5" />
+
+                                <span className="sr-only">Open menu</span>
+
+                              </Button>
+
+                            </DropdownMenuTrigger>
+
+                          </TooltipTrigger>
+
+                          <TooltipContent>
+
+                            <p>More actions</p>
+
+                          </TooltipContent>
+
+                        </Tooltip>
+
+                        <DropdownMenuContent align="end" className="w-[200px] bg-[#1f1f1f] border-zinc-800">
+
+                          <DropdownMenuLabel className="text-xs font-semibold text-zinc-50">Call Actions</DropdownMenuLabel>
+
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuItem onClick={(e) => handleViewDetails(call.id, e)} className="text-xs">
+
+                            <Eye className="mr-2 size-3.5" />
+
+                            <span>View Details</span>
+
+                          </DropdownMenuItem>
+
+                          {call.status !== "ended" && (
+
+                            <DropdownMenuItem onClick={(e) => handleEndCall(call.id, e)} className="bg-red-500/10 text-red-500 hover:bg-red-500/20 focus:bg-red-500/20 focus:text-red-500 text-xs">
+
+                              <PhoneOff className="mr-2 size-3.5 text-red-500" />
+
+                              <span>End Call</span>
+
+                            </DropdownMenuItem>
+
+                          )}
+
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuItem onClick={(e) => handleDownloadTranscript(call.id, e)} className="text-xs">
+
+                            <Download className="mr-2 size-3.5" />
+
+                            <span>Download Transcript</span>
+
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem onClick={(e) => handleAddNote(call.id, e)} className="text-xs">
+
+                            <FileEdit className="mr-2 size-3.5" />
+
+                            <span>Add Note</span>
+
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem onClick={(e) => handleFlagCall(call.id, e)} className="text-xs">
+
+                            <Flag className="mr-2 size-3.5" />
+
+                            <span>Flag for Review</span>
+
+                          </DropdownMenuItem>
+
+                        </DropdownMenuContent>
+
+                      </DropdownMenu>
+
+                    </div>
+
+                  </td>
+
+                </tr>
+
+              ))}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+    </div>
+
+  )
+
+}
+
